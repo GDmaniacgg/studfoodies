@@ -2,13 +2,11 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getMealPlan } from '../actions/recipes'
 import { getProfile, clearProfile } from '@/lib/profile'
 import { translations } from '@/lib/translations'
 import { getSavings, addSavings } from '@/lib/savings'
 
 export default function Home() {
-  const [data, formAction, pending] = useActionState(getMealPlan, null)
   const router = useRouter()
   const [profile, setProfile] = useState<any>(null)
   const [ready, setReady] = useState(false)
