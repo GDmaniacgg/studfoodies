@@ -16,14 +16,20 @@ export default function Home() {
   const [savings, setSavings] = useState<any>(null)
 
   useEffect(() => {
-    const p = getProfile()
-    if (!p) router.push('/onboarding')
-    else { 
-      setProfile(p)
-      setSavings(getSavings())
-      setReady(true)
+    try {
+      const p = getProfile()
+      if (!p) router.push('/onboarding')
+      else { 
+        setProfile(p)
+        setSavings(getSavings())
+        setReady(true)
+      }
+    } catch (e) {
+      console.error('Profile error:', e)
+      router.push('/onboarding') // Force redirect even on error
     }
   }, [])
+
 
   // 🏦 Track savings when new recipes are loaded
   useEffect(() => {
