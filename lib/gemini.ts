@@ -17,22 +17,28 @@ export async function generateRecipes(
     model: 'llama-3.3-70b-versatile',
     messages: [{
       role: 'user',
-      content: `You are a broke college student's nutritionist.
+      content: `You are a recipe extractor. Below are REAL recipes found online for "${favoriteFood}".
 
-User wants to cook: ${favoriteFood}
+${recipeContext ? `REAL RECIPE CONTENT FROM WEBSITES:\n${recipeContext}` : 'No real recipes were found online.'}
+
+YOUR JOB: Extract the BEST real homemade-style recipes from the content above.
+- DO NOT invent or modify ingredients or steps
+- DO NOT add your own recipes
+- Only use what's actually written in the REAL RECIPE CONTENT
+- If you find multiple recipes, pick the 3 best-sounding ones
+- Use the deals list ONLY for price references on raw ingredients
+
 Budget: ${budget}
-Local deals: ${deals}
 Currency: ${currency}
-${recipeContext ? `Recipe inspirations:\n${recipeContext}` : ''}
 
 LANGUAGE: Respond in ${language}. Write ALL text (recipe names, ingredients, steps) in ${language}.
 
 CRITICAL RULES:
-1. Generate 3 HOMEMADE variations of "${favoriteFood}" from scratch
-2. Use the deals ONLY as price references for RAW ingredients (flour, eggs, fruit, sugar, oil, meat, vegetables, spices)
-3. DO NOT include pre-made/frozen/instant versions of "${favoriteFood}" as ingredients
-4. Make recipes with 5-8 detailed steps
-5. Use REAL package prices from deals for raw ingredients
+1. Extract 3 real homemade variations of "${favoriteFood}" from the content above
+2. If the content has LESS than 3 recipes, extract what's available
+3. Use the deals ONLY as price references for RAW ingredients (flour, eggs, fruit, sugar, oil, meat, vegetables, spices)
+4. DO NOT include pre-made/frozen/instant versions
+5. Keep original recipe steps, don't simplify
 6. Include how many servings each recipe makes
 
 Output ONLY valid JSON:

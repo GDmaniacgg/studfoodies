@@ -48,7 +48,7 @@ async function detectCountry(location: string): Promise<string> {
     if (lower.includes(name)) return code
   }
   
-    try {
+  try {
     const locations = await getLocations({ q: location, limit: 5 })
     const exactMatch = locations?.find((l: any) => 
       l.name?.toLowerCase().includes(lower) || 
@@ -59,7 +59,6 @@ async function detectCountry(location: string): Promise<string> {
     }
   } catch {}
 
-  
   return 'us'
 }
 
@@ -94,10 +93,8 @@ export async function getMealPlan(prevState: any, formData: FormData) {
   const budget = formData.get('budget') as string
   const area = formData.get('area') as string
 
-  // 🆕 Get favorite stores from the hidden input
   const favoriteStoresStr = formData.get('favoriteStores') as string
   const favoriteStores: string[] = favoriteStoresStr ? JSON.parse(favoriteStoresStr) : []
-  // 🆕 Use profile language and currency from onboarding
   const profileLanguage = formData.get('profileLanguage') as string || ''
   const profileCurrencySymbol = formData.get('profileCurrencySymbol') as string || ''
 
@@ -105,8 +102,6 @@ export async function getMealPlan(prevState: any, formData: FormData) {
   const lang = profileLanguage || langMap[country] || 'en'
   const currency = profileCurrencySymbol || currencyMap[country] || '$'
 
-
-  // 🆕 Add favorite stores to search queries for better targeting
   const storeFilter = favoriteStores.length > 0 ? favoriteStores.join(' ') : ''
   
   const shoppingQuery = searchTerms[country]?.(food) || `${food} price`
@@ -117,7 +112,7 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     ? `${leafletQuery} ${storeFilter}` 
     : leafletQuery
 
-  // Search 1: Google Shopping prices (filtered by favorite stores)
+  // Search 1: Google Shopping prices
   const shoppingResults = await getJson({
     engine: 'google_shopping',
     api_key: process.env.SERPAPI_API_KEY,
@@ -128,7 +123,7 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     num: 6,
   }).catch(() => ({ shopping_results: [] }))
 
-  // Search 2: Weekly leaflets (filtered by favorite stores)
+  // Search 2: Weekly leaflets
   const leafletResults = leafletQueryWithStores ? await getJson({
     engine: 'google',
     api_key: process.env.SERPAPI_API_KEY,
@@ -139,38 +134,64 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     num: 4,
   }).catch(() => ({ organic_results: [] })) : null
 
-  // Search 3: Real recipes from local sites
+  // 🆕 Search 3: Fetch REAL recipes from ALL local recipe sites
   let recipeContext = ''
   const sites = recipeSites[country]
-  if (sites) {
+  if (sites && sites.length > 0) {
+    // Search multiple recipe sites
     const recipeSearch = await getJson({
       engine: 'google',
       api_key: process.env.SERPAPI_API_KEY,
-      q: `${food} recept ${sites[0]}`,
+      q: `${food} recept ${sites.slice(0, 3).join(' OR ')}`,
       location: area,
       gl: country,
       hl: lang,
-      num: 3,
+      num: 8,
     }).catch(() => ({ organic_results: [] }))
 
-    recipeContext = (recipeSearch.organic_results || [])
-      .slice(0, 3)
-      .map((r: any) => `RECIPE: ${r.title} - ${r.snippet}`)
-      .join('\n')
+    const results = (recipeSearch.organic_results || []).slice(0, 5)
+    
+    // Try to fetch the FULL recipe page for each result
+    for (const result of results) {
+      try {
+        const pageRes = await fetch(result.link!, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(4000),
+        })
+        const html = await pageRes.text()
+        
+        // Extract meaningful text (remove HTML tags, scripts, styles)
+        const text = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 2500) // First 2500 chars of real content
+        
+        recipeContext += `\n--- RECIPE FROM: ${result.title} (${result.link}) ---\n${text}\n`
+      } catch {
+        // Fallback: use snippet if page fetch fails
+        recipeContext += `\n--- ${result.title} ---\n${result.snippet}\n`
+      }
+    }
   }
 
   const shoppingDeals = (shoppingResults.shopping_results?.slice(0, 6) || []).map((d: any) => ({
-  ...d,
-  source: d.title?.toLowerCase().includes('hotové') || d.title?.toLowerCase().includes('ready') 
-    ? 'premade' 
-    : d.title?.toLowerCase().includes('polotovar') || d.title?.toLowerCase().includes('mix') || d.title?.toLowerCase().includes('směs')
-    ? 'semifinished'
-    : 'raw'
+    ...d,
+    source: d.title?.toLowerCase().includes('hotové') || d.title?.toLowerCase().includes('ready') 
+      ? 'premade' 
+      : d.title?.toLowerCase().includes('polotovar') || d.title?.toLowerCase().includes('mix') || d.title?.toLowerCase().includes('směs')
+      ? 'semifinished'
+      : 'raw'
   }))
 
   const leafletDeals = (leafletResults?.organic_results?.slice(0, 4) || []).map((d: any) => ({
-  ...d,
-  source: 'leaflet'
+    ...d,
+    source: 'leaflet'
   }))
 
   const dealSummary = [
