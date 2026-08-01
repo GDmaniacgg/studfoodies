@@ -48,12 +48,17 @@ async function detectCountry(location: string): Promise<string> {
     if (lower.includes(name)) return code
   }
   
-  try {
-    const locations = await getLocations({ q: location, limit: 1 })
-    if (locations?.[0]?.country_code) {
-      return locations[0].country_code.toLowerCase()
+    try {
+    const locations = await getLocations({ q: location, limit: 5 })
+    const exactMatch = locations?.find((l: any) => 
+      l.name?.toLowerCase().includes(lower) || 
+      lower.includes(l.name?.toLowerCase() || '')
+    )
+    if (exactMatch?.country_code) {
+      return exactMatch.country_code.toLowerCase()
     }
   } catch {}
+
   
   return 'us'
 }
@@ -150,8 +155,19 @@ export async function getMealPlan(prevState: any, formData: FormData) {
       .join('\n')
   }
 
-  const shoppingDeals = shoppingResults.shopping_results?.slice(0, 6) || []
-  const leafletDeals = leafletResults?.organic_results?.slice(0, 4) || []
+  const shoppingDeals = (shoppingResults.shopping_results?.slice(0, 6) || []).map((d: any) => ({
+  ...d,
+  source: d.title?.toLowerCase().includes('hotové') || d.title?.toLowerCase().includes('ready') 
+    ? 'premade' 
+    : d.title?.toLowerCase().includes('polotovar') || d.title?.toLowerCase().includes('mix') || d.title?.toLowerCase().includes('směs')
+    ? 'semifinished'
+    : 'raw'
+  }))
+
+  const leafletDeals = (leafletResults?.organic_results?.slice(0, 4) || []).map((d: any) => ({
+  ...d,
+  source: 'leaflet'
+  }))
 
   const dealSummary = [
     ...shoppingDeals.map((d: any) => `${d.title} - ${d.price}`),
@@ -165,5 +181,8 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     leaflets: leafletDeals,
     recipes,
     currency,
+    lastFood: food,
+    lastBudget: budget,
+    lastArea: area,
   }
 }
