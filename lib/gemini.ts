@@ -14,7 +14,7 @@ export async function generateRecipes(
   language: string = 'en'
 ) {
   const response = await openai.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'mixtral-8x7b-32768',
     messages: [{
       role: 'user',
       content: `You are a broke college student's nutritionist.

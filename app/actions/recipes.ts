@@ -28,19 +28,6 @@ const currencyMap: Record<string, string> = {
   'br': 'R$', 'us': '$',
 }
 
-const recipeSites: Record<string, string[]> = {
-  'cz': ['site:vareni.cz', 'site:recepty.cz', 'site:toprecepty.cz'],
-  'sk': ['site:vareni.sk', 'site:recepty.sk'],
-  'de': ['site:chefkoch.de', 'site:lecker.de'],
-  'fr': ['site:marmiton.org', 'site:cuisineaz.com'],
-  'es': ['site:recetasdeescandalo.com', 'site:directoalpaladar.com'],
-  'it': ['site:giallozafferano.it', 'site:ricette.giallozafferano.it'],
-  'pl': ['site:kwestiasmaku.com', 'site:przepisy.pl'],
-  'hu': ['site:nosalty.hu', 'site:receptneked.hu'],
-  'gb': ['site:bbcgoodfood.com', 'site:allrecipes.com'],
-  'us': ['site:allrecipes.com', 'site:foodnetwork.com'],
-}
-
 async function detectCountry(location: string): Promise<string> {
   const lower = location.toLowerCase()
   
@@ -134,69 +121,37 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     num: 4,
   }).catch(() => ({ organic_results: [] })) : null
 
-  // Search 3: Fetch REAL recipes from ALL local recipe sites
+  // 🆕 Search 3: Get REAL recipes from Google's rich recipe results
   let recipeContext = ''
-  const sites = recipeSites[country]
-  if (sites && sites.length > 0) {
-    // Search multiple recipe sites at once
-    const recipeSearch = await getJson({
-      engine: 'google',
-      api_key: process.env.SERPAPI_API_KEY,
-      q: `${food} recept ${sites.slice(0, 3).join(' OR ')}`,
-      location: area,
-      gl: country,
-      hl: lang,
-      num: 8,
-    }).catch(() => ({ organic_results: [] }))
+  const recipeSearch = await getJson({
+    engine: 'google',
+    api_key: process.env.SERPAPI_API_KEY,
+    q: `${food} recept`,
+    location: area,
+    gl: country,
+    hl: lang,
+    num: 8,
+  }).catch(() => ({ organic_results: [] }))
 
-    const results = (recipeSearch.organic_results || []).slice(0, 5)
-    
-    // Try to fetch the FULL recipe page for each result
-    for (const result of results) {
-      try {
-        // Rotate user agents to avoid blocks
-        const agents = [
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        ]
-        const agent = agents[Math.floor(Math.random() * agents.length)]
-        
-        const pageRes = await fetch(result.link!, {
-          headers: { 
-            'User-Agent': agent,
-            'Accept': 'text/html,application/xhtml+xml',
-            'Accept-Language': `${lang},en;q=0.9`,
-          },
-          signal: AbortSignal.timeout(5000),
-        })
-        
-        if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`)
-        
-        const html = await pageRes.text()
-        if (html.length < 500) throw new Error('Page too short')
-        
-        // Extract meaningful text (remove HTML tags, scripts, nav, header, footer)
-        const text = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 2500)
-        
-        if (text.length > 200) {
-          recipeContext += `\n--- RECIPE FROM: ${result.title} ---\n${text}\n`
-        }
-      } catch {
-        // Fallback: use snippet if page fetch fails
-        if (result.snippet && result.snippet.length > 50) {
-          recipeContext += `\n--- ${result.title} ---\n${result.snippet}\n`
-        }
+  const results = (recipeSearch.organic_results || []).slice(0, 6)
+
+  for (const r of results) {
+    // Try to get rich snippet recipe data from Google
+    const recipe = r.rich_snippet?.top?.recipes?.recipe || 
+                   r.rich_snippet?.top?.detected_extensions
+
+    if (recipe) {
+      recipeContext += `\n--- RECIPE: ${r.title} ---\n`
+      if (recipe.ingredients) {
+        recipeContext += `Ingredients: ${recipe.ingredients.join(', ')}\n`
       }
+      if (recipe.cooking_time) {
+        recipeContext += `Cooking time: ${recipe.cooking_time}\n`
+      }
+      recipeContext += `Description: ${r.snippet || ''}\n`
+    } else if (r.snippet && r.snippet.length > 50) {
+      // Fallback: use search snippet
+      recipeContext += `\n--- ${r.title} ---\n${r.snippet}\n`
     }
   }
 
