@@ -97,6 +97,9 @@ export async function getMealPlan(prevState: any, formData: FormData) {
   // 🆕 Get favorite stores from the hidden input
   const favoriteStoresStr = formData.get('favoriteStores') as string
   const favoriteStores: string[] = favoriteStoresStr ? JSON.parse(favoriteStoresStr) : []
+  // 🆕 Use profile language and currency from onboarding
+  const profileLanguage = formData.get('profileLanguage') as string || ''
+  const profileCurrencySymbol = formData.get('profileCurrencySymbol') as string || ''
 
   const country = await detectCountry(area)
   const lang = langMap[country] || 'en'

@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getMealPlan } from './actions/recipes'
 import { getProfile, clearProfile } from '@/lib/profile'
-import { translations } from '@/lib/translations'
+import { translations, currencies } from '@/lib/translations'
 import { getSavings, addSavings } from '@/lib/savings'
 
 export default function Home() {
@@ -14,6 +14,9 @@ export default function Home() {
   const [ready, setReady] = useState(false)
   const [openLists, setOpenLists] = useState<Record<number, boolean>>({})
   const [savings, setSavings] = useState<any>(null)
+  const [lastFood, setLastFood] = useState('')
+  const [lastBudget, setLastBudget] = useState('')
+  const [lastArea, setLastArea] = useState('')
 
   useEffect(() => {
     try {
@@ -26,37 +29,44 @@ export default function Home() {
       }
     } catch (e) {
       console.error('Profile error:', e)
-      router.push('/onboarding') // Force redirect even on error
+      router.push('/onboarding')
     }
   }, [])
 
-
-  // 🏦 Track savings when new recipes are loaded
+  // 🏦 Track savings + preserve form values
   useEffect(() => {
     if (data?.recipes) {
       const totalCost = data.recipes.reduce((sum: number, r: any) => sum + (r.total_cost || 0), 0)
       addSavings(totalCost, data.currency)
       setSavings(getSavings())
     }
+    if (data?.lastFood) {
+      setLastFood(data.lastFood)
+      setLastBudget(data.lastBudget)
+      setLastArea(data.lastArea)
+    }
   }, [data])
 
   const t = (key: string) => 
     profile ? (translations[profile.language]?.[key] || translations.en[key] || key) : key
+
+  const currencySymbol = profile 
+    ? (currencies.find(c => c.code === profile.currency)?.symbol || '$') 
+    : '$'
 
   const toggleList = (index: number) => {
     setOpenLists(prev => ({ ...prev, [index]: !prev[index] }))
   }
 
   if (!ready) return (
-  <div className="min-h-screen bg-indigo-600 flex items-center justify-center">
-    <div className="text-white text-center">
-      <div className="text-4xl mb-4">🎓</div>
-      <p className="font-bold">StudFoodies</p>
-      <p className="text-sm text-indigo-200 mt-1">Loading...</p>
+    <div className="min-h-screen bg-indigo-600 flex items-center justify-center">
+      <div className="text-white text-center">
+        <div className="text-4xl mb-4">🎓</div>
+        <p className="font-bold text-lg">StudFoodies</p>
+        <p className="text-sm text-indigo-200 mt-1">Loading...</p>
+      </div>
     </div>
-  </div>
-)
-
+  )
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -96,14 +106,15 @@ export default function Home() {
         {/* Form */}
         <form action={formAction} className="mt-4 sm:mt-6 p-4 sm:p-6 bg-white rounded-xl shadow-sm border">
           <div className="space-y-3">
-            <input name="food" placeholder={t('food')} 
+            <input name="food" placeholder={t('food')} defaultValue={lastFood}
                    className="w-full p-3.5 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none" required />
-            <input name="budget" placeholder={t('budget')} 
+            <input name="budget" placeholder={t('budget')} defaultValue={lastBudget}
                    className="w-full p-3.5 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none" required />
-            <input name="area" placeholder={t('area')} 
+            <input name="area" placeholder={t('area')} defaultValue={lastArea}
                    className="w-full p-3.5 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none" required />
-            {/* 🆕 Hidden input passes favorite stores to the search engine */}
             <input type="hidden" name="favoriteStores" value={JSON.stringify(profile?.favoriteStores || [])} />
+            <input type="hidden" name="profileLanguage" value={profile?.language || 'en'} />
+            <input type="hidden" name="profileCurrencySymbol" value={currencySymbol} />
             <button type="submit" disabled={pending}
                     className="w-full py-3.5 bg-indigo-600 text-white text-sm sm:text-base font-bold rounded-lg hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50 transition">
               {pending ? t('cooking') : t('search')}
@@ -125,6 +136,13 @@ export default function Home() {
                     <p className="text-sm sm:text-base font-medium line-clamp-2">{deal.title}</p>
                     {deal.price && (
                       <p className="text-green-700 font-bold text-sm sm:text-base mt-1">{deal.price}</p>
+                    )}
+                    {deal.source && (
+                      <span className="text-xs text-gray-400 mt-1 block">
+                        {deal.source === 'raw' ? '🥩 Ingredient' : 
+                         deal.source === 'premade' ? '📦 Pre-made' : 
+                         deal.source === 'semifinished' ? '🥫 Semi-finished' : '📄 Leaflet'}
+                      </span>
                     )}
                   </div>
                 ))}
