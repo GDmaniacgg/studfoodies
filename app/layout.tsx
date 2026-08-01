@@ -16,18 +16,20 @@ export const metadata: Metadata = {
   title: "StudFoodies",
   description: "AI deals & recipes for broke students",
   manifest: "/manifest.json",
-  themeColor: "#4f46e5",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "StudFoodies",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
 };
+
+export const viewport = {
+  themeColor: "#4f46e5",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 
 export default function RootLayout({
   children,
