@@ -102,8 +102,9 @@ export async function getMealPlan(prevState: any, formData: FormData) {
   const profileCurrencySymbol = formData.get('profileCurrencySymbol') as string || ''
 
   const country = await detectCountry(area)
-  const lang = langMap[country] || 'en'
-  const currency = currencyMap[country] || '$'
+  const lang = profileLanguage || langMap[country] || 'en'
+  const currency = profileCurrencySymbol || currencyMap[country] || '$'
+
 
   // 🆕 Add favorite stores to search queries for better targeting
   const storeFilter = favoriteStores.length > 0 ? favoriteStores.join(' ') : ''
@@ -177,7 +178,7 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     ...leafletDeals.map((d: any) => `📄 ${d.title}`),
   ].join(', ') || 'No deals found'
 
-  const recipes = await generateRecipes(food, budget, dealSummary, currency, recipeContext)
+  const recipes = await generateRecipes(food, budget, dealSummary, currency, recipeContext, lang)
 
   return {
     deals: shoppingDeals,

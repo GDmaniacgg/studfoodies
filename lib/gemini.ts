@@ -10,9 +10,10 @@ export async function generateRecipes(
   budget: string,
   deals: string,
   currency: string = '$',
-  recipeContext: string = ''
+  recipeContext: string = '',
+  language: string = 'en'
 ) {
-  const response = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [{
       role: 'user',
@@ -22,17 +23,15 @@ User wants to cook: ${favoriteFood}
 Budget: ${budget}
 Local deals: ${deals}
 Currency: ${currency}
+${recipeContext ? `Recipe inspirations:\n${recipeContext}` : ''}
 
-REAL RECIPES FROM LOCAL SITES (use as reference for authentic methods):
-${recipeContext || 'No local recipes found, use your traditional knowledge.'}
+LANGUAGE: Respond in ${language}. Write ALL text (recipe names, ingredients, steps) in ${language}.
 
 CRITICAL RULES:
 1. Generate 3 HOMEMADE variations of "${favoriteFood}" from scratch
 2. Use the deals ONLY as price references for RAW ingredients (flour, eggs, fruit, sugar, oil, meat, vegetables, spices)
 3. DO NOT include pre-made/frozen/instant versions of "${favoriteFood}" as ingredients
-   - Wrong: "Kynuté knedlíky plněné meruňkami 84,90 Kč" (pre-made product)
-   - Right: "mouka 25 Kč", "vajíčka 60 Kč", "meruňky 40 Kč" (raw ingredients)
-4. Make recipes with 5-8 detailed steps using TRADITIONAL methods from reference recipes
+4. Make recipes with 5-8 detailed steps
 5. Use REAL package prices from deals for raw ingredients
 6. Include how many servings each recipe makes
 
@@ -41,8 +40,10 @@ Output ONLY valid JSON:
     }]
   })
 
+  
   const text = response.choices[0].message.content!
   
+  // Extract just the JSON array
   const jsonStart = text.indexOf('[')
   const jsonEnd = text.lastIndexOf(']')
   
@@ -52,6 +53,7 @@ Output ONLY valid JSON:
   
   let json = text.slice(jsonStart, jsonEnd + 1)
   
+  // 🔧 Sanitize: remove bad control characters from string values
   json = json.replace(/[\u0000-\u001F\u007F]/g, '')
        .replace(/\\(?!["\\\/bfnrtu])/g, '\\\\')
   
