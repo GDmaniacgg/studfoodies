@@ -1,10 +1,8 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getProfile, clearProfile } from '@/lib/profile'
 import { translations } from '@/lib/translations'
-import { getSavings, addSavings } from '@/lib/savings'
 
 export default function Home() {
   const router = useRouter()
@@ -26,21 +24,7 @@ export default function Home() {
     }
   }, [])
 
-  // 🏦 Track savings + preserve form values
-  useEffect(() => {
-    if (data?.recipes) {
-      const totalCost = data.recipes.reduce((sum: number, r: any) => sum + (r.total_cost || 0), 0)
-      addSavings(totalCost, data.currency)
-      setSavings(getSavings())
-    }
-    if (data?.lastFood) {
-      setLastFood(data.lastFood)
-      setLastBudget(data.lastBudget)
-      setLastArea(data.lastArea)
-    }
-  }, [data])
-
-  const t = (key: string) => 
+    const t = (key: string) => 
     profile ? (translations[profile.language]?.[key] || translations.en[key] || key) : key
 
   const toggleList = (index: number) => {
