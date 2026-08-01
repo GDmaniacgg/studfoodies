@@ -33,13 +33,15 @@ LANGUAGE: Respond in ${language}. Write ALL text (recipe names, ingredients, ste
 
 RULES:
 1. ${recipeContext 
-     ? 'EXTRACT 3 real recipes from the content above. Only use what\'s written there.'
-     : 'CREATE 3 simple homemade recipes from scratch.'
+     ? `EXTRACT 3 real recipes for "${favoriteFood}" from the content above. Only use what\'s written there.`
+     : `CREATE 3 simple homemade variations of "${favoriteFood}" from scratch.`
    }
 2. Use the deals ONLY as price references for RAW ingredients
 3. DO NOT include pre-made/frozen/instant versions
-4. Make recipes with 5-8 detailed steps
-5. Include how many servings each recipe makes
+4. Format prices with a space before currency: e.g. "120 ${currency}" not "120${currency}"
+5. Make recipes with 5-8 detailed steps
+6. Include how many servings each recipe makes
+
 
 Output ONLY valid JSON:
 [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]`
