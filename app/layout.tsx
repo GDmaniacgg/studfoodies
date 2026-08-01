@@ -15,20 +15,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "StudFoodies",
   description: "AI deals & recipes for broke students",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "StudFoodies",
-  },
 };
 
-export const viewport: Viewport = {
+export const viewport = {
   themeColor: "#4f46e5",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
 };
+
 
 export default function RootLayout({
   children,
