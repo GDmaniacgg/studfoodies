@@ -15,6 +15,7 @@ export async function generateRecipes(
 ) {
   const response = await openai.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
+    response_format: { type: "json_object" },
     messages: [{
       role: 'user',
       content: `You are a broke college student's nutritionist.
@@ -42,35 +43,44 @@ RULES:
 5. Make recipes with 5-8 detailed steps
 6. Include how many servings each recipe makes
 
-
 Output ONLY valid JSON:
-[{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]`
+{"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
     }]
   })
 
-    const text = response.choices[0].message.content!
+  const text = response.choices[0].message.content!
   
-  // Extract just the JSON array
+  // Try direct parse first (json_object mode should return valid JSON)
+  try {
+    const parsed = JSON.parse(text)
+    const recipes = parsed.recipes || (Array.isArray(parsed) ? parsed : [parsed])
+    if (recipes.length > 0 && recipes[0].name) {
+      return recipes
+    }
+  } catch {}
+  
+  // Fallback: extract JSON array from text
   const jsonStart = text.indexOf('[')
   const jsonEnd = text.lastIndexOf(']')
   
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error('AI did not return valid JSON')
+  if (jsonStart !== -1 && jsonEnd !== -1) {
+    try {
+      let json = text.slice(jsonStart, jsonEnd + 1)
+      json = json
+        .replace(/[\u0000-\u001F\u007F]/g, '')
+        .replace(/'/g, '"')
+        .replace(/,(\s*[\]}])/g, '$1')
+        .replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+      return JSON.parse(json)
+    } catch {}
   }
   
-  let json = text.slice(jsonStart, jsonEnd + 1)
-  
-  // Clean common JSON errors from AI output
-  json = json
-    // Remove control characters
-    .replace(/[\u0000-\u001F\u007F]/g, '')
-    // Fix single quotes to double quotes
-    .replace(/'/g, '"')
-    // Remove trailing commas before ] or }
-    .replace(/,(\s*[\]}])/g, '$1')
-    // Fix unquoted keys (regex for word before colon)
-    .replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-  
-  return JSON.parse(json)
-
+  // Last resort: return a simple default recipe
+  return [{
+    name: `${favoriteFood} - ${language === 'cs' ? 'jednoduše' : 'simple style'}`,
+    servings: 2,
+    ingredients: [{ name: favoriteFood, price: 50 }],
+    total_cost: 50,
+    steps: [language === 'cs' ? `Uvařte ${favoriteFood} podle chuti.` : `Cook ${favoriteFood} to your liking.`]
+  }]
 }
