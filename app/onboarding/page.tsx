@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getMealPlan } from './actions/recipes'
 import { getProfile, clearProfile } from '@/lib/profile'
 import { translations } from '@/lib/translations'
 import { getSavings, addSavings } from '@/lib/savings'
