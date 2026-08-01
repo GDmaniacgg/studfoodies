@@ -48,7 +48,7 @@ Output ONLY valid JSON:
     }]
   })
 
-  const text = response.choices[0].message.content!
+    const text = response.choices[0].message.content!
   
   // Extract just the JSON array
   const jsonStart = text.indexOf('[')
@@ -60,9 +60,17 @@ Output ONLY valid JSON:
   
   let json = text.slice(jsonStart, jsonEnd + 1)
   
-  // Sanitize: remove bad control characters
-  json = json.replace(/[\u0000-\u001F\u007F]/g, '')
-       .replace(/\\(?!["\\\/bfnrtu])/g, '\\\\')
+  // Clean common JSON errors from AI output
+  json = json
+    // Remove control characters
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    // Fix single quotes to double quotes
+    .replace(/'/g, '"')
+    // Remove trailing commas before ] or }
+    .replace(/,(\s*[\]}])/g, '$1')
+    // Fix unquoted keys (regex for word before colon)
+    .replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
   
   return JSON.parse(json)
+
 }
