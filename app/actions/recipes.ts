@@ -134,11 +134,11 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     num: 4,
   }).catch(() => ({ organic_results: [] })) : null
 
-  // 🆕 Search 3: Fetch REAL recipes from ALL local recipe sites
+  // Search 3: Fetch REAL recipes from ALL local recipe sites
   let recipeContext = ''
   const sites = recipeSites[country]
   if (sites && sites.length > 0) {
-    // Search multiple recipe sites
+    // Search multiple recipe sites at once
     const recipeSearch = await getJson({
       engine: 'google',
       api_key: process.env.SERPAPI_API_KEY,
@@ -154,13 +154,29 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     // Try to fetch the FULL recipe page for each result
     for (const result of results) {
       try {
-        const pageRes = await fetch(result.link!, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          signal: AbortSignal.timeout(4000),
-        })
-        const html = await pageRes.text()
+        // Rotate user agents to avoid blocks
+        const agents = [
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        ]
+        const agent = agents[Math.floor(Math.random() * agents.length)]
         
-        // Extract meaningful text (remove HTML tags, scripts, styles)
+        const pageRes = await fetch(result.link!, {
+          headers: { 
+            'User-Agent': agent,
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': `${lang},en;q=0.9`,
+          },
+          signal: AbortSignal.timeout(5000),
+        })
+        
+        if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`)
+        
+        const html = await pageRes.text()
+        if (html.length < 500) throw new Error('Page too short')
+        
+        // Extract meaningful text (remove HTML tags, scripts, nav, header, footer)
         const text = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -170,12 +186,16 @@ export async function getMealPlan(prevState: any, formData: FormData) {
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
-          .slice(0, 2500) // First 2500 chars of real content
+          .slice(0, 2500)
         
-        recipeContext += `\n--- RECIPE FROM: ${result.title} (${result.link}) ---\n${text}\n`
+        if (text.length > 200) {
+          recipeContext += `\n--- RECIPE FROM: ${result.title} ---\n${text}\n`
+        }
       } catch {
         // Fallback: use snippet if page fetch fails
-        recipeContext += `\n--- ${result.title} ---\n${result.snippet}\n`
+        if (result.snippet && result.snippet.length > 50) {
+          recipeContext += `\n--- ${result.title} ---\n${result.snippet}\n`
+        }
       }
     }
   }
