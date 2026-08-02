@@ -110,12 +110,12 @@ export async function translateRecipes(
   try {
     const translated = await Promise.all(recipes.map(async (recipe) => {
       // Translate recipe name
-      const nameRes = await translator.translateText(recipe.name || '', 'en', targetLang)
+      const nameRes = await translator.translateText(recipe.name || '', 'en', targetLang) as deepl.TextResult
 
       // Translate each ingredient name
       const ingredients = await Promise.all((recipe.ingredients || []).map(async (ing: any) => {
         try {
-          const ingRes = await translator.translateText(ing.name || '', 'en', targetLang)
+          const ingRes = await translator.translateText(ing.name || '', 'en', targetLang) as deepl.TextResult
           return { ...ing, name: ingRes.text }
         } catch {
           return ing // keep original if translation fails
@@ -125,7 +125,7 @@ export async function translateRecipes(
       // Translate each step
       const steps = await Promise.all((recipe.steps || []).map(async (step: string) => {
         try {
-          const stepRes = await translator.translateText(step || '', 'en', targetLang)
+          const stepRes = await translator.translateText(step || '', 'en', targetLang) as deepl.TextResult
           return stepRes.text
         } catch {
           return step
