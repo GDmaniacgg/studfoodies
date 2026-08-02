@@ -174,7 +174,15 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     ...leafletDeals.map((d: any) => `📄 ${d.title}`),
   ].join(', ') || 'No deals found'
 
-  const recipes = await generateRecipes(food, budget, dealSummary, currency, recipeContext, lang)
+    // 🆕 Try real recipes from the 73k database first!
+  const { findRecipes } = await import('@/lib/recipeDatabase')
+  let recipes = findRecipes(food)
+  
+  // Only use AI if no real recipes found
+  if (recipes.length === 0) {
+    recipes = await generateRecipes(food, budget, dealSummary, currency, recipeContext, lang)
+  }
+
 
   return {
     deals: shoppingDeals,
