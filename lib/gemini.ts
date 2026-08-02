@@ -1,9 +1,13 @@
 import OpenAI from 'openai'
+import * as deepl from 'deepl-node'
 
 const openai = new OpenAI({
   baseURL: 'https://api.groq.com/openai/v1',
   apiKey: process.env.GROQ_API_KEY,
 })
+
+// DeepL translator instance
+const translator = new deepl.Translator(process.env.DEEPL_API_KEY || '')
 
 export async function generateRecipes(
   favoriteFood: string,
@@ -85,44 +89,60 @@ Output ONLY valid JSON:
   }]
 }
 
-// 🆕 Translate real recipes from the database into the user's language
+// 🆕 DeepL translation - natural, no hallucinations
 export async function translateRecipes(
   recipes: any[],
   language: string
 ): Promise<any[]> {
+  // Already in English (the database language)
   if (!language || language === 'en') return recipes
 
+  // DeepL language codes
+  const deeplLangs: Record<string, string> = {
+    cs: 'CS', de: 'DE', fr: 'FR', es: 'ES', it: 'IT',
+    pl: 'PL', hu: 'HU', nl: 'NL', ja: 'JA', ru: 'RU',
+    uk: 'UK', ro: 'RO', bg: 'BG', el: 'EL', tr: 'TR',
+    sv: 'SV', da: 'DA', fi: 'FI', pt: 'PT',
+  }
+  const targetLang = deeplLangs[language]
+  if (!targetLang) return recipes // unsupported language
+
   try {
-    const response = await openai.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      response_format: { type: "json_object" },
-      messages: [{
-        role: 'user',
-        content: `Translate these cooking recipes into ${language}.
+    const translated = await Promise.all(recipes.map(async (recipe) => {
+      // Translate recipe name
+      const nameRes = await translator.translateText(recipe.name || '', 'en', targetLang)
 
-Original recipes (JSON):
-${JSON.stringify(recipes)}
+      // Translate each ingredient name
+      const ingredients = await Promise.all((recipe.ingredients || []).map(async (ing: any) => {
+        try {
+          const ingRes = await translator.translateText(ing.name || '', 'en', targetLang)
+          return { ...ing, name: ingRes.text }
+        } catch {
+          return ing // keep original if translation fails
+        }
+      }))
 
-Translate ALL text (recipe names, ingredient names, steps) into ${language}.
-- Keep the exact same JSON structure
-- Keep numbers/amounts unchanged
-- Prices MUST be pure numbers, no currency symbols: "price": 30 correct, "price": 30 Kč WRONG
-- Use natural ${language} cooking terminology
-- Keep ingredient names as real ${language} ingredient names
+      // Translate each step
+      const steps = await Promise.all((recipe.steps || []).map(async (step: string) => {
+        try {
+          const stepRes = await translator.translateText(step || '', 'en', targetLang)
+          return stepRes.text
+        } catch {
+          return step
+        }
+      }))
 
-Output ONLY valid JSON:
-{"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
-      }]
-    })
+      return {
+        ...recipe,
+        name: nameRes.text,
+        ingredients,
+        steps,
+      }
+    }))
 
-    const text = response.choices[0].message.content!
-    const parsed = JSON.parse(text)
-    const translated = parsed.recipes || parsed
-
-    if (Array.isArray(translated) && translated.length > 0 && translated[0].name) {
-      return translated
-    }
-  } catch {}
-
-  return recipes
+    return translated
+  } catch (err) {
+    console.error('DeepL translation failed:', err)
+    return recipes // fallback to original English
+  }
 }
