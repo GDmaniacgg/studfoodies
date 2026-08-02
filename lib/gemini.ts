@@ -98,7 +98,7 @@ export async function translateRecipes(
   if (!language || language === 'en') return recipes
 
   // DeepL language codes
-  const deeplLangs: Record<string, string> = {
+  const deeplLangs: Record<string, deepl.TargetLanguageCode> = {
     cs: 'CS', de: 'DE', fr: 'FR', es: 'ES', it: 'IT',
     pl: 'PL', hu: 'HU', nl: 'NL', ja: 'JA', ru: 'RU',
     uk: 'UK', ro: 'RO', bg: 'BG', el: 'EL', tr: 'TR',
