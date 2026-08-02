@@ -84,3 +84,47 @@ Output ONLY valid JSON:
     steps: [language === 'cs' ? `Uvařte ${favoriteFood} podle chuti.` : `Cook ${favoriteFood} to your liking.`]
   }]
 }
+
+// 🆕 NEW: Translate real recipes from the database into the user's language
+export async function translateRecipes(
+  recipes: any[],
+  language: string
+): Promise<any[]> {
+  // Already in the right language
+  if (!language || language === 'en') return recipes
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      response_format: { type: "json_object" },
+      messages: [{
+        role: 'user',
+        content: `Translate these cooking recipes into ${language}.
+
+Original recipes (JSON):
+${JSON.stringify(recipes)}
+
+Translate ALL text (recipe names, ingredient names, steps) into ${language}.
+- Keep the exact same JSON structure
+- Keep numbers/amounts unchanged
+- Use natural ${language} cooking terminology
+- Keep ingredient names as real ${language} ingredient names
+
+Output ONLY valid JSON:
+{"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
+      }]
+    })
+
+    const text = response.choices[0].message.content!
+    const parsed = JSON.parse(text)
+    const translated = parsed.recipes || parsed
+    
+    // Only return if translation looks valid
+    if (Array.isArray(translated) && translated.length > 0 && translated[0].name) {
+      return translated
+    }
+  } catch {}
+  
+  // If translation fails, return original recipes
+  return recipes
+}

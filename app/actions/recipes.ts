@@ -1,6 +1,6 @@
 'use server'
 import { getJson } from 'serpapi'
-import { generateRecipes } from '@/lib/gemini'
+import { generateRecipes, translateRecipes } from '@/lib/gemini'
 
 const countryNames: Record<string, string> = {
   'czech republic': 'cz', 'czechia': 'cz', 'česká republika': 'cz',
@@ -26,6 +26,32 @@ const currencyMap: Record<string, string> = {
   'it': '€', 'pl': 'zł', 'at': '€', 'sk': '€', 'hu': 'Ft',
   'nl': '€', 'jp': '¥', 'au': 'A$', 'ca': 'C$', 'in': '₹',
   'br': 'R$', 'us': '$',
+}
+
+// 🆕 Czech → English food translations for database search
+const foodTranslations: Record<string, string> = {
+  'dort': 'cake', 'pudink': 'pudding', 'špagety': 'spaghetti',
+  'těstoviny': 'pasta', 'kuře': 'chicken', 'hovězí': 'beef',
+  'vepřové': 'pork', 'ryba': 'fish', 'polévka': 'soup',
+  'salát': 'salad', 'palacinky': 'pancakes', 'lívance': 'pancakes',
+  'brambory': 'potato', 'rýže': 'rice', 'sýr': 'cheese',
+  'vejce': 'eggs', 'maso': 'meat', 'guláš': 'goulash',
+  'řízek': 'schnitzel', 'knedlíky': 'dumplings', 'zelí': 'cabbage',
+  'mrkev': 'carrot', 'rajčata': 'tomato', 'cibule': 'onion',
+  'česnek': 'garlic', 'houby': 'mushroom', 'smetana': 'cream',
+  'máslo': 'butter', 'mouka': 'flour', 'cukr': 'sugar',
+  'čokoláda': 'chocolate', 'jahody': 'strawberry', 'jablka': 'apple',
+  'banán': 'banana', 'citron': 'lemon', 'tvaroh': 'quark',
+}
+
+function translateFood(food: string): string {
+  const lower = food.toLowerCase()
+  for (const [cz, en] of Object.entries(foodTranslations)) {
+    if (lower.includes(cz)) {
+      return lower.replace(cz, en)
+    }
+  }
+  return lower
 }
 
 async function detectCountry(location: string): Promise<string> {
@@ -121,7 +147,7 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     num: 4,
   }).catch(() => ({ organic_results: [] })) : null
 
-  // 🆕 Search 3: Get REAL recipes from Google's rich recipe results
+  // Search 3: Google rich recipe results as context
   let recipeContext = ''
   const recipeSearch = await getJson({
     engine: 'google',
@@ -136,7 +162,6 @@ export async function getMealPlan(prevState: any, formData: FormData) {
   const results = (recipeSearch.organic_results || []).slice(0, 6)
 
   for (const r of results) {
-    // Try to get rich snippet recipe data from Google
     const recipe = r.rich_snippet?.top?.recipes?.recipe || 
                    r.rich_snippet?.top?.detected_extensions
 
@@ -150,7 +175,6 @@ export async function getMealPlan(prevState: any, formData: FormData) {
       }
       recipeContext += `Description: ${r.snippet || ''}\n`
     } else if (r.snippet && r.snippet.length > 50) {
-      // Fallback: use search snippet
       recipeContext += `\n--- ${r.title} ---\n${r.snippet}\n`
     }
   }
@@ -174,15 +198,22 @@ export async function getMealPlan(prevState: any, formData: FormData) {
     ...leafletDeals.map((d: any) => `📄 ${d.title}`),
   ].join(', ') || 'No deals found'
 
-    // 🆕 Try real recipes from the 73k database first!
+  // 🆕 1. Try real recipes from the 73k database (with translation)
   const { findRecipes } = await import('@/lib/recipeDatabase')
   let recipes = findRecipes(food)
   
-  // Only use AI if no real recipes found
+  // 2. If nothing found, try with translated food name (e.g. "dort" → "cake")
   if (recipes.length === 0) {
+    recipes = findRecipes(translateFood(food))
+  }
+  
+  // 3. If real recipes found, translate them to user's language
+  if (recipes.length > 0) {
+    recipes = await translateRecipes(recipes, lang)
+  } else {
+    // 4. Fall back to AI generation
     recipes = await generateRecipes(food, budget, dealSummary, currency, recipeContext, lang)
   }
-
 
   return {
     deals: shoppingDeals,
