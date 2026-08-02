@@ -39,14 +39,13 @@ RULES:
    }
 2. Use the deals ONLY as price references for RAW ingredients
 3. DO NOT include pre-made/frozen/instant versions
-4. Format prices with a space before currency: e.g. "120 ${currency}" not "120${currency}"
+4. PRICES ARE PURE NUMBERS. NEVER write currency symbols in JSON: "price": 30 is correct, "price": 30 Kč is WRONG
 5. Make recipes with 5-8 detailed steps
 6. Include how many servings each recipe makes
 
 Output ONLY valid JSON:
 {"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
-    }]
-  })
+
 
   const text = response.choices[0].message.content!
   
@@ -107,8 +106,10 @@ ${JSON.stringify(recipes)}
 Translate ALL text (recipe names, ingredient names, steps) into ${language}.
 - Keep the exact same JSON structure
 - Keep numbers/amounts unchanged
+- Prices MUST be pure numbers, no currency symbols: "price": 30 correct, "price": 30 Kč WRONG
 - Use natural ${language} cooking terminology
 - Keep ingredient names as real ${language} ingredient names
+
 
 Output ONLY valid JSON:
 {"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
