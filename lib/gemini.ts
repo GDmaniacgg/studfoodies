@@ -25,7 +25,7 @@ Budget: ${budget}
 Local deals: ${deals}
 Currency: ${currency}
 
-${recipeContext 
+${recipeContext
   ? `REAL RECIPES FOUND ONLINE (use these as source):\n${recipeContext}`
   : 'No real recipes found online. You MUST create simple homemade recipes from scratch.'
 }
@@ -33,8 +33,8 @@ ${recipeContext
 LANGUAGE: Respond in ${language}. Write ALL text (recipe names, ingredients, steps) in ${language}.
 
 RULES:
-1. ${recipeContext 
-     ? `EXTRACT 3 real recipes for "${favoriteFood}" from the content above. Only use what\'s written there.`
+1. ${recipeContext
+     ? `EXTRACT 3 real recipes for "${favoriteFood}" from the content above. Only use what's written there.`
      : `CREATE 3 simple homemade variations of "${favoriteFood}" from scratch.`
    }
 2. Use the deals ONLY as price references for RAW ingredients
@@ -45,10 +45,11 @@ RULES:
 
 Output ONLY valid JSON:
 {"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
-
+    }]
+  })
 
   const text = response.choices[0].message.content!
-  
+
   // Try direct parse first (json_object mode should return valid JSON)
   try {
     const parsed = JSON.parse(text)
@@ -57,11 +58,11 @@ Output ONLY valid JSON:
       return recipes
     }
   } catch {}
-  
+
   // Fallback: extract JSON array from text
   const jsonStart = text.indexOf('[')
   const jsonEnd = text.lastIndexOf(']')
-  
+
   if (jsonStart !== -1 && jsonEnd !== -1) {
     try {
       let json = text.slice(jsonStart, jsonEnd + 1)
@@ -73,7 +74,7 @@ Output ONLY valid JSON:
       return JSON.parse(json)
     } catch {}
   }
-  
+
   // Last resort: return a simple default recipe
   return [{
     name: `${favoriteFood} - ${language === 'cs' ? 'jednoduše' : 'simple style'}`,
@@ -84,12 +85,11 @@ Output ONLY valid JSON:
   }]
 }
 
-// 🆕 NEW: Translate real recipes from the database into the user's language
+// 🆕 Translate real recipes from the database into the user's language
 export async function translateRecipes(
   recipes: any[],
   language: string
 ): Promise<any[]> {
-  // Already in the right language
   if (!language || language === 'en') return recipes
 
   try {
@@ -110,7 +110,6 @@ Translate ALL text (recipe names, ingredient names, steps) into ${language}.
 - Use natural ${language} cooking terminology
 - Keep ingredient names as real ${language} ingredient names
 
-
 Output ONLY valid JSON:
 {"recipes": [{"name": string, "servings": number, "ingredients": [{"name": string, "price": number}], "total_cost": number, "steps": [string]}]}`
       }]
@@ -119,13 +118,11 @@ Output ONLY valid JSON:
     const text = response.choices[0].message.content!
     const parsed = JSON.parse(text)
     const translated = parsed.recipes || parsed
-    
-    // Only return if translation looks valid
+
     if (Array.isArray(translated) && translated.length > 0 && translated[0].name) {
       return translated
     }
   } catch {}
-  
-  // If translation fails, return original recipes
+
   return recipes
 }
