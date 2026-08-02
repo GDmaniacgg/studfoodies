@@ -97,15 +97,14 @@ export async function translateRecipes(
   // Already in English (the database language)
   if (!language || language === 'en') return recipes
 
-    // DeepL language codes (lowercase in new API)
-  const deeplLangs: Record<string, deepl.TargetLanguageCode> = {
+    // DeepL language codes
+  const deeplLangs: Record<string, string> = {
     cs: 'cs', de: 'de', fr: 'fr', es: 'es', it: 'it',
     pl: 'pl', hu: 'hu', nl: 'nl', ja: 'ja', ru: 'ru',
     uk: 'uk', ro: 'ro', bg: 'bg', el: 'el', tr: 'tr',
     sv: 'sv', da: 'da', fi: 'fi', pt: 'pt',
   }
-
-  const targetLang = deeplLangs[language]
+  const targetLang = deeplLangs[language] as deepl.TargetLanguageCode
   if (!targetLang) return recipes // unsupported language
 
   try {
